@@ -23,13 +23,7 @@ cfg_if::cfg_if! {
     }
 }
 
-#[cfg(feature = "atomic-polyfill")]
-use atomic_polyfill as atomic;
-#[cfg(not(feature = "atomic-polyfill"))]
-use core::sync::atomic;
-
 use alloc::boxed::Box;
-use atomic::{AtomicUsize, Ordering};
 use core::any::{Any, TypeId};
 use core::fmt;
 use core::hash::BuildHasher;
@@ -134,20 +128,20 @@ pub trait RandomSource {
 }
 
 struct DefaultRandomSource {
-    counter: AtomicUsize,
+    counter: usize
 }
 
 impl DefaultRandomSource {
     fn new() -> DefaultRandomSource {
         DefaultRandomSource {
-            counter: AtomicUsize::new(&PI as *const _ as usize),
+            counter: &PI as *const _ as usize
         }
     }
 
     #[cfg(all(target_arch = "arm", target_os = "none"))]
     const fn default() -> DefaultRandomSource {
         DefaultRandomSource {
-            counter: AtomicUsize::new(PI[3] as usize),
+            counter: PI[3] as usize
         }
     }
 }
@@ -165,7 +159,9 @@ impl RandomSource for DefaultRandomSource {
         } else {
             fn gen_hasher_seed(&self) -> usize {
                 let stack = self as *const _ as usize;
-                self.counter.fetch_add(stack, Ordering::Relaxed)
+                let ret = self.counter;
+                unsafe { &mut *(self as *const Self as *mut Self) }.counter += stack;
+                ret
             }
         }
     }
